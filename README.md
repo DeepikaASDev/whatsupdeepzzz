@@ -55,6 +55,8 @@ pip install -r requirements-dev.txt
 cp .env.example .env          # then add your OPENAI_API_KEY (or Anthropic settings)
 ```
 
+**Check your setup first:** `python -m booking_agent.check_setup` tells you exactly what is missing (key, .env file, time zone) and sends one test message to the model.
+
 **Web chat:** `uvicorn booking_agent.api:app --reload`, then open http://localhost:8000
 
 **Terminal chat:** `python -m booking_agent.cli`

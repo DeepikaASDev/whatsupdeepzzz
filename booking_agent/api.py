@@ -41,9 +41,11 @@ def create_app(agent: BookingAgent | None = None) -> FastAPI:
                 app.state.agent = build_default_agent()
             except Exception as exc:
                 log.error("Could not start the agent: %s", exc)
+                reason = str(exc).splitlines()[0][:200] if str(exc) else type(exc).__name__
                 raise HTTPException(
                     status_code=503,
-                    detail="Agent is not configured. Set LLM_MODEL and your provider's API key in .env.",
+                    detail=("Agent is not configured. Set LLM_MODEL and your provider's API key in .env. "
+                            f"Reason: {reason}"),
                 ) from exc
         return app.state.agent
 
