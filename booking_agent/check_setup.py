@@ -21,10 +21,10 @@ def main() -> int:
             print("       Found .env.txt instead. Rename it to exactly .env")
     load_dotenv()
 
-    model = os.getenv("LLM_MODEL", "openai:gpt-4o-mini")
+    model = os.getenv("LLM_MODEL", "google_genai:gemini-2.5-flash")
     print(f"[info] LLM_MODEL = {model}")
     provider = model.split(":", 1)[0] if ":" in model else "openai"
-    key_name = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}.get(provider)
+    key_name = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "google_genai": "GOOGLE_API_KEY"}.get(provider)
     if key_name:
         key = os.getenv(key_name, "").strip()
         if not key:
@@ -59,7 +59,8 @@ def main() -> int:
             agent.llm.invoke("Reply with the single word: ready")
         except Exception as exc:
             print(f"[fail] The model call failed: {type(exc).__name__}: {str(exc)[:300]}")
-            print("       Common causes: invalid key, no API credit/billing, or a wrong model name in LLM_MODEL.")
+            print("       Common causes: invalid key, no API credit/billing, a wrong model name in LLM_MODEL,"
+              "\n       or (free tiers) too many requests per minute: wait a minute and try again.")
             return 1
         result = agent.chat("setup-check", "What are your hours?")
         print(f"[ok]   Agent replied in {result.latency_ms} ms: {result.reply[:120]}")

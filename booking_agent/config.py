@@ -18,8 +18,8 @@ def get_settings() -> Settings:
     load_dotenv()
     return Settings(
         # Any "provider:model" string supported by LangChain's init_chat_model,
-        # e.g. "openai:gpt-4o-mini" or an Anthropic Claude model.
-        llm_model=os.getenv("LLM_MODEL", "openai:gpt-4o-mini"),
+        # e.g. "google_genai:gemini-2.5-flash" (free tier) or "openai:gpt-4o-mini".
+        llm_model=os.getenv("LLM_MODEL", "google_genai:gemini-2.5-flash"),
         db_path=os.getenv("DB_PATH", "data/appointments.db"),
         timezone=os.getenv("CLINIC_TIMEZONE", "America/Los_Angeles"),
         max_message_chars=int(os.getenv("MAX_MESSAGE_CHARS", "1000")),

@@ -43,7 +43,7 @@ Agent: [book_appointment] You're booked! Your appointment ID is 3F9A21C0.
   3. *Output*: a canary token in the system prompt detects and blocks prompt leaks.
 - **Context engineering** (`prompts.py`): today's date and weekday go into the prompt so "next Tuesday" resolves correctly, and every clinic fact comes from a tool rather than the prompt.
 - **Observability**: every reply returns latency, input/output tokens, tools called, and which guardrail fired, if any.
-- **Provider-agnostic**: works with OpenAI or Anthropic models through LangChain's `init_chat_model`.
+- **Provider-agnostic**: works with Google Gemini (free tier), OpenAI or Anthropic models through LangChain's `init_chat_model`, by changing one line in `.env`.
 
 ## Run it
 
@@ -52,7 +52,7 @@ git clone https://github.com/DeepikaASDev/ai-booking-agent.git
 cd ai-booking-agent
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
-cp .env.example .env          # then add your OPENAI_API_KEY (or Anthropic settings)
+cp .env.example .env          # then add a free GOOGLE_API_KEY (or OpenAI/Anthropic settings)
 ```
 
 **Check your setup first:** `python -m booking_agent.check_setup` tells you exactly what is missing (key, .env file, time zone) and sends one test message to the model.
