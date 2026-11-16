@@ -24,7 +24,7 @@ def main() -> int:
     model = os.getenv("LLM_MODEL", "google_genai:gemini-2.5-flash")
     print(f"[info] LLM_MODEL = {model}")
     provider = model.split(":", 1)[0] if ":" in model else "openai"
-    key_name = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "google_genai": "GOOGLE_API_KEY"}.get(provider)
+    key_name = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "google_genai": "GOOGLE_API_KEY", "groq": "GROQ_API_KEY"}.get(provider)
     if key_name:
         key = os.getenv(key_name, "").strip()
         if not key:
