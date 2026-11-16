@@ -60,3 +60,11 @@ def test_output_guardrail_blocks_prompt_leak():
     text, reason = check_output("Sure! " + prompt)
     assert reason == "prompt_leak" and PROMPT_CANARY not in text
     assert check_output("Your cleaning is booked.") == ("Your cleaning is booked.", None)
+
+
+def test_system_prompt_contains_real_clinic_facts():
+    prompt = build_system_prompt(datetime(2026, 11, 16, 8, 0))
+    assert "Monday: 9:00 AM - 5:00 PM" in prompt
+    assert "Sunday: closed" in prompt
+    assert "Teeth cleaning: 60 min, $120" in prompt
+    assert "2026-11-16 08:00 (Monday)" in prompt

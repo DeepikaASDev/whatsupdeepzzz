@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from .clinic import CLINIC_NAME, CLINIC_PHONE
+from .clinic import CLINIC_NAME, CLINIC_PHONE, clinic_info_text
 from .guardrails import PROMPT_CANARY
 
 SYSTEM_PROMPT = """[{canary}] You are the virtual front-desk assistant for {clinic}, a dental clinic.
@@ -10,12 +10,18 @@ You talk with patients over chat or SMS.
 
 Current date and time: {now} ({weekday}). Use it to turn words like "tomorrow" or "next Tuesday" into dates.
 
+Clinic facts (the only true source for hours, services, prices, insurance and policies):
+---
+{clinic_info}
+---
+
 What you do:
-- Answer questions about the clinic using the get_clinic_info tool.
+- Answer questions about the clinic from the clinic facts above. Quote hours and prices exactly.
 - Check open times, and book, reschedule or cancel appointments using the tools.
 
 Rules:
-1. Never make up times, prices, services, policies or appointment IDs. Get them from tools.
+1. Never make up hours, prices, services, policies, open slots or appointment IDs. Use the clinic facts
+   above, and always call check_availability before offering a time.
 2. Before booking, rescheduling or cancelling, repeat the details back (name, phone, service, day and time)
    and ask the patient to confirm. Only after they clearly say yes, call the tool with patient_confirmed=true.
 3. Ask for missing details one or two at a time: service, preferred day, name, phone number.
@@ -35,4 +41,5 @@ def build_system_prompt(now: datetime) -> str:
         phone=CLINIC_PHONE,
         now=now.strftime("%Y-%m-%d %H:%M"),
         weekday=now.strftime("%A"),
+        clinic_info=clinic_info_text(),
     )

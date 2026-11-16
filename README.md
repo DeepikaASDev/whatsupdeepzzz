@@ -41,7 +41,7 @@ Agent: [book_appointment] You're booked! Your appointment ID is 3F9A21C0.
   1. *Input* (`guardrails.py`): blocks prompt-injection attempts and oversized messages, and sends possible medical emergencies a fixed "call 911" message without calling the model.
   2. *Tools*: booking, rescheduling and cancelling all require `patient_confirmed=true`, which the prompt allows only after the patient says yes to a summary.
   3. *Output*: a canary token in the system prompt detects and blocks prompt leaks.
-- **Context engineering** (`prompts.py`): today's date and weekday go into the prompt so "next Tuesday" resolves correctly, and every clinic fact comes from a tool rather than the prompt.
+- **Context engineering** (`prompts.py`): today's date and weekday go into the prompt so "next Tuesday" resolves correctly, and the clinic's facts (hours, prices, policies) are built from `clinic.py` into the prompt. Small local models skipped the lookup tool and guessed the hours, so putting the ~250 tokens of facts in context fixed it. Open slots always come from a tool, because they change.
 - **Observability**: every reply returns latency, input/output tokens, tools called, and which guardrail fired, if any.
 - **Provider-agnostic**: works with a local Ollama model (free, no key), Google Gemini or Groq (free tiers), OpenAI or Anthropic models through LangChain's `init_chat_model`, by changing one line in `.env`.
 
@@ -91,7 +91,7 @@ Returns:
 pytest -q
 ```
 
-The 20 tests run without an API key. A scripted fake chat model drives the **real** LangGraph loop, so the tests check tool execution, conversation memory, guardrails, error fallbacks, the recursion limit, the booking rules and the API. GitHub Actions runs them, plus a Docker build, on every push.
+The 21 tests run without an API key. A scripted fake chat model drives the **real** LangGraph loop, so the tests check tool execution, conversation memory, guardrails, error fallbacks, the recursion limit, the booking rules and the API. GitHub Actions runs them, plus a Docker build, on every push.
 
 ## Project layout
 
