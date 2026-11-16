@@ -59,6 +59,10 @@ def main() -> int:
             agent.llm.invoke("Reply with the single word: ready")
         except Exception as exc:
             print(f"[fail] The model call failed: {type(exc).__name__}: {str(exc)[:300]}")
+            if provider == "ollama":
+                print("       Ollama: make sure the Ollama app is running and you ran:  ollama pull "
+                      + model.split(":", 1)[1])
+                return 1
             print("       Common causes: invalid key, no API credit/billing, a wrong model name in LLM_MODEL,"
               "\n       or (free tiers) too many requests per minute: wait a minute and try again.")
             return 1
