@@ -16,4 +16,4 @@ jobs:
           cache: pip
       - run: pip install -r requirements-dev.txt
       - run: pytest -q
-      - run: docker build -t ai-booking-agent .
+      - run: docker build -t deepzzzz .

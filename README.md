@@ -1,10 +1,12 @@
-# Deepzzzz: a personal AI companion with memory
+# What's up, Deepzzzz!!!!! 👋
 
-Deepzzzz is an AI friend you can chat with. It **remembers what you tell it across conversations**, does **mood check-ins with a weekly recap**, keeps your **reminders and notes**, and talks like a warm, upbeat friend. It is built with **LangGraph** and **tool calling**, stores everything locally in **SQLite**, and has **guardrails** that run in code, so they work even when the model slips.
+**Deepzzzz** is my personal AI companion with memory, mood check-ins and reminders.
 
-![tests](https://github.com/DeepikaASDev/ai-booking-agent/actions/workflows/tests.yml/badge.svg)
+It's an AI friend you can chat with. It **remembers what you tell it across conversations**, does **mood check-ins with a weekly recap**, keeps your **reminders and notes**, and talks like a warm, upbeat friend. It is built with **LangGraph** and **tool calling**, stores everything locally in **SQLite**, and has **guardrails** that run in code, so they work even when the model slips.
 
-> This repository started as an AI appointment-booking agent for a dental clinic. That version is kept on the [`booking-agent-v1`](https://github.com/DeepikaASDev/ai-booking-agent/tree/booking-agent-v1) branch.
+![tests](https://github.com/DeepikaASDev/whatsupdeepzzz/actions/workflows/tests.yml/badge.svg)
+
+> This project grew out of an AI appointment-booking agent for a dental clinic, which is kept on the [`booking-agent-v1`](https://github.com/DeepikaASDev/whatsupdeepzzz/tree/booking-agent-v1) branch.
 
 ## Example conversation
 
@@ -61,8 +63,8 @@ Deepzzzz:  Hey Deepika! Don't forget your STAR stories practice tonight. How are
 ## Run it
 
 ```bash
-git clone https://github.com/DeepikaASDev/ai-booking-agent.git
-cd ai-booking-agent
+git clone https://github.com/DeepikaASDev/whatsupdeepzzz.git
+cd whatsupdeepzzz
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 cp .env.example .env     # Windows: copy .env.example .env ; then add your GROQ_API_KEY and USER_NAME
