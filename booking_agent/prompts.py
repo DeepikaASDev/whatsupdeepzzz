@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .clinic import CLINIC_NAME, CLINIC_PHONE, clinic_info_text
 from .guardrails import PROMPT_CANARY
@@ -8,7 +8,9 @@ from .guardrails import PROMPT_CANARY
 SYSTEM_PROMPT = """[{canary}] You are the virtual front-desk assistant for {clinic}, a dental clinic.
 You talk with patients over chat or SMS.
 
-Current date and time: {now} ({weekday}). Use it to turn words like "tomorrow" or "next Tuesday" into dates.
+Current date and time: {now} ({weekday}). Use this calendar to turn words like "tomorrow" or "Wednesday" into
+dates (always use these exact YYYY-MM-DD values; never work dates out yourself):
+{calendar}
 
 Clinic facts (the only true source for hours, services, prices, insurance and policies):
 ---
@@ -42,4 +44,14 @@ def build_system_prompt(now: datetime) -> str:
         now=now.strftime("%Y-%m-%d %H:%M"),
         weekday=now.strftime("%A"),
         clinic_info=clinic_info_text(),
+        calendar=_calendar(now),
     )
+
+
+def _calendar(now: datetime, days: int = 14) -> str:
+    lines = []
+    for i in range(days):
+        day = now.date() + timedelta(days=i)
+        label = " (today)" if i == 0 else " (tomorrow)" if i == 1 else ""
+        lines.append(f"- {day.strftime('%A')} = {day.isoformat()}{label}")
+    return "\n".join(lines)

@@ -40,8 +40,8 @@ Agent: [book_appointment] You're booked! Your appointment ID is 3F9A21C0.
 - **Guardrails in three layers:**
   1. *Input* (`guardrails.py`): blocks prompt-injection attempts and oversized messages, and sends possible medical emergencies a fixed "call 911" message without calling the model.
   2. *Tools*: booking, rescheduling and cancelling all require `patient_confirmed=true`, which the prompt allows only after the patient says yes to a summary.
-  3. *Output*: a canary token in the system prompt detects and blocks prompt leaks.
-- **Context engineering** (`prompts.py`): today's date and weekday go into the prompt so "next Tuesday" resolves correctly, and the clinic's facts (hours, prices, policies) are built from `clinic.py` into the prompt. Small local models skipped the lookup tool and guessed the hours, so putting the ~250 tokens of facts in context fixed it. Open slots always come from a tool, because they change.
+  3. *Output*: a canary token in the system prompt detects and blocks prompt leaks, and an **action-claim check** compares what the agent *says* with what the tools *did*. If the reply says "you're booked" but no booking tool succeeded in the conversation, the reply is replaced with the tool's real error, and the false message is also removed from memory. This came from testing with a small local model, which told a patient they were booked after the tool had rejected the booking for a missing name and phone.
+- **Context engineering** (`prompts.py`): today's date plus a ready-made 14-day calendar ("Wednesday = 2026-11-18") go into the prompt, because small models got weekday arithmetic wrong, and the clinic's facts (hours, prices, policies) are built from `clinic.py` into the prompt. Small local models skipped the lookup tool and guessed the hours, so putting the ~250 tokens of facts in context fixed it. Open slots always come from a tool, because they change.
 - **Observability**: every reply returns latency, input/output tokens, tools called, and which guardrail fired, if any.
 - **Provider-agnostic**: works with a local Ollama model (free, no key), Google Gemini or Groq (free tiers), OpenAI or Anthropic models through LangChain's `init_chat_model`, by changing one line in `.env`.
 
@@ -56,6 +56,8 @@ cp .env.example .env          # then pick a model: local Ollama (no key), Gemini
 ```
 
 **Check your setup first:** `python -m booking_agent.check_setup` tells you exactly what is missing (key, .env file, time zone) and sends one test message to the model.
+
+**See what's really booked:** `python -m booking_agent.list_appointments` prints the appointments in the database. A booking only counts if it appears here.
 
 **Web chat:** `uvicorn booking_agent.api:app --reload`, then open http://localhost:8000
 
@@ -91,7 +93,7 @@ Returns:
 pytest -q
 ```
 
-The 21 tests run without an API key. A scripted fake chat model drives the **real** LangGraph loop, so the tests check tool execution, conversation memory, guardrails, error fallbacks, the recursion limit, the booking rules and the API. GitHub Actions runs them, plus a Docker build, on every push.
+The 25 tests run without an API key. A scripted fake chat model drives the **real** LangGraph loop, so the tests check tool execution, conversation memory, guardrails, error fallbacks, the recursion limit, the booking rules and the API. GitHub Actions runs them, plus a Docker build, on every push.
 
 ## Project layout
 

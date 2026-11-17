@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Callable
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.errors import GraphRecursionError
@@ -24,7 +24,7 @@ from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from .clinic import CLINIC_PHONE
-from .guardrails import check_input, check_output
+from .guardrails import check_action_claims, check_input, check_output
 from .prompts import build_system_prompt
 from .store import AppointmentStore
 from .tools import make_tools
@@ -125,8 +125,14 @@ class BookingAgent:
             result.input_tokens += usage.get("input_tokens", 0)
             result.output_tokens += usage.get("output_tokens", 0)
 
-        reply = _text(ai_messages[-1]) if ai_messages else ""
-        reply, reason = check_output(reply or FALLBACK_REPLY)
+        original = _text(ai_messages[-1]) if ai_messages else ""
+        reply, reason = check_output(original or FALLBACK_REPLY)
+        if reason is None:
+            tool_results = [(m.name or "", _text(m)) for m in state["messages"] if isinstance(m, ToolMessage)]
+            reply, reason = check_action_claims(reply, tool_results)
+        if reason and ai_messages:
+            # Replace the bad reply in memory too, so the model doesn't build on it next turn.
+            self.graph.update_state(config, {"messages": [AIMessage(content=reply, id=ai_messages[-1].id)]}, as_node="agent")
         result.reply = reply
         result.guardrail = reason
         return result

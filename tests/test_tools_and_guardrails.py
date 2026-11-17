@@ -68,3 +68,24 @@ def test_system_prompt_contains_real_clinic_facts():
     assert "Sunday: closed" in prompt
     assert "Teeth cleaning: 60 min, $120" in prompt
     assert "2026-11-16 08:00 (Monday)" in prompt
+
+
+def test_action_claim_patterns():
+    from booking_agent.guardrails import check_action_claims
+
+    booked_ok = [("book_appointment", "Booked. ID AB12CD34: ...")]
+    assert check_action_claims("You're all booked for Tuesday!", booked_ok)[1] is None
+    assert check_action_claims("You're all booked for Tuesday!", [])[1] == "unverified_action"
+    assert check_action_claims("Your appointment has been cancelled.", booked_ok)[1] == "unverified_action"
+    assert check_action_claims("I've moved your appointment to 2 PM.", [])[1] == "unverified_action"
+    # Offers and questions are not claims.
+    for text in ["Would you like me to book a cleaning?", "You can cancel up to 24 hours ahead.",
+                 "Shall I reschedule it to 2 PM?", "Here are the open times for Tuesday."]:
+        assert check_action_claims(text, [])[1] is None, text
+
+
+def test_system_prompt_has_ready_made_calendar():
+    prompt = build_system_prompt(datetime(2026, 11, 16, 8, 0))
+    assert "- Monday = 2026-11-16 (today)" in prompt
+    assert "- Tuesday = 2026-11-17 (tomorrow)" in prompt
+    assert "- Wednesday = 2026-11-18" in prompt

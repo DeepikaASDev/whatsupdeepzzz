@@ -73,6 +73,56 @@ def check_input(text: str, max_chars: int = 1000) -> GuardResult:
     return GuardResult(True)
 
 
+# --- Action-claim check: the reply may only say "booked" if a tool really booked. ---
+# Each action: (pattern that claims it happened, tool name, prefix of that tool's success result).
+_ACTION_CLAIMS = {
+    "booking": (
+        re.compile(r"\b(is|are|has been|have been|you'?re|you are|i'?ve|i have|all|now)\s+(now\s+|all\s+)?"
+                   r"(booked|scheduled|confirmed)\b|\b(booked|scheduled) (you|your)\b|\bbooking (is )?confirmed\b",
+                   re.IGNORECASE),
+        ("book_appointment", "reschedule_appointment"), ("Booked.", "Rescheduled."),
+    ),
+    "reschedule": (
+        re.compile(r"\b(is|has been|have|was|i'?ve)\s+(now\s+)?(rescheduled|moved)\b|\b(rescheduled|moved) (your|the) appointment\b",
+                   re.IGNORECASE),
+        ("reschedule_appointment",), ("Rescheduled.",),
+    ),
+    "cancellation": (
+        re.compile(r"\b(is|has been|have|was|i'?ve)\s+(now\s+)?cancell?ed\b|\bcancell?ed (your|the) appointment\b",
+                   re.IGNORECASE),
+        ("cancel_appointment",), ("Cancelled.",),
+    ),
+}
+
+
+def check_action_claims(text: str, tool_results: list[tuple[str, str]]) -> tuple[str, str | None]:
+    """Replace a reply that claims a booking, reschedule or cancellation no tool actually performed.
+
+    `tool_results` is every (tool name, result text) pair in the conversation so far.
+    Small models sometimes say "you're booked!" after the booking tool returned an error.
+    """
+    for action, (pattern, tools, success_prefixes) in _ACTION_CLAIMS.items():
+        if not pattern.search(text):
+            continue
+        succeeded = any(name in tools and content.startswith(success_prefixes) for name, content in tool_results)
+        if succeeded:
+            continue
+        failures = [content for name, content in tool_results if name in tools]
+        last = failures[-1] if failures else ""
+        if last.startswith("Error:"):
+            detail = " " + last.removeprefix("Error:").strip()
+        elif last.startswith("Not done"):
+            detail = " I need you to confirm the details first."
+        else:
+            detail = ""
+        return (f"Sorry, I haven't completed the {action} yet.{detail} "
+                "To book, I need the service, day and time, your full name and your phone number."
+                if action == "booking" else
+                f"Sorry, I haven't completed the {action} yet.{detail} "
+                "Please share your appointment ID and phone number so I can look it up."), "unverified_action"
+    return text, None
+
+
 def check_output(text: str) -> tuple[str, str | None]:
     """Return (safe_text, reason_if_replaced)."""
     if PROMPT_CANARY in text:

@@ -94,3 +94,35 @@ def test_api_explains_missing_configuration(monkeypatch):
     res = client.post("/chat", json={"session_id": "abc", "message": "hi"})
     assert res.status_code == 503
     assert "API key" in res.json()["detail"]
+
+
+def test_claimed_booking_without_tool_success_is_caught(store):
+    # The exact failure seen with a small local model: the tool rejected the
+    # booking (no name/phone), but the model told the patient they were booked.
+    agent, llm = make_agent(store, [
+        tool_call("book_appointment", {"patient_name": "", "phone": "", "service": "cleaning",
+                                       "start_time": "2026-11-18T09:00", "patient_confirmed": True}),
+        AIMessage("Your appointment is booked for Wednesday, November 17th at 9:00 AM. See you then!"),
+        AIMessage("Sure, what's your full name and phone number?"),
+    ])
+    result = agent.chat("s1", "Yes, please book it")
+    assert result.guardrail == "unverified_action"
+    assert "haven't completed the booking" in result.reply
+    assert "full name" in result.reply  # the tool's real error is passed on
+    assert store.find_upcoming("4085550101") == []
+
+    # Memory holds the corrected reply, not the false one.
+    assert agent.history("s1")[-1].content == result.reply
+    agent.chat("s1", "ok")
+    assert all("November 17th" not in str(m.content) for m in llm.received[-1])
+
+
+def test_real_booking_claim_is_allowed_now_and_later(store):
+    agent, _ = make_agent(store, [
+        tool_call("book_appointment", {"patient_name": "Ana Lopez", "phone": "4085550101", "service": "cleaning",
+                                       "start_time": "2026-11-18T09:00", "patient_confirmed": True}),
+        AIMessage("You're booked for Wed Nov 18 at 9:00 AM."),
+        AIMessage("Your appointment is booked for Wed Nov 18 at 9:00 AM."),
+    ])
+    assert agent.chat("s1", "Yes, book it").guardrail is None
+    assert agent.chat("s1", "When is my appointment again?").guardrail is None
