@@ -10,7 +10,7 @@ from datetime import datetime
 
 from langchain_core.tools import BaseTool, tool
 
-from .store import Store, StoreError
+from .store import MOOD_WORDS, Store, StoreError, WeekSummary
 
 
 def _fmt(dt: datetime) -> str:
@@ -131,4 +131,59 @@ def make_tools(store: Store) -> list[BaseTool]:
             return "No matching notes."
         return "Notes:\n" + "\n\n".join(f"#{n.id} {n.title} ({n.created_at:%b %d})\n{n.content}" for n in notes)
 
-    return [remember_fact, forget_fact, add_reminder, list_reminders, complete_reminder, save_note, search_notes]
+    @tool
+    def log_mood(score: int, label: str, note: str = "") -> str:
+        """Record how the user is feeling, for their mood tracker and weekly recap.
+
+        Call this when the user tells you how they feel (in a check-in or naturally in chat).
+        Log at most once per clear change in mood; don't log every message.
+
+        Args:
+            score: 1 = very low, 2 = low, 3 = okay, 4 = good, 5 = great.
+            label: One or two words for the feeling, e.g. "stressed", "excited", "tired".
+            note: Optional short reason in their words, e.g. "mock interview went well".
+        """
+        try:
+            mood = store.log_mood(score, label, note)
+        except StoreError as e:
+            return f"Error: {e}"
+        return f"Mood logged #{mood.id}: {mood.label} ({mood.score}/5, {MOOD_WORDS[mood.score]})"
+
+    @tool
+    def get_weekly_recap(days: int = 7) -> str:
+        """Get the user's mood check-ins and activity for the past days, to write their recap.
+
+        Use when they ask how their week went, ask for a recap, or on Sundays when you offer one.
+        Write the recap yourself from this data: warm, specific, short, and end with encouragement.
+
+        Args:
+            days: How many days to cover (default 7).
+        """
+        days = max(1, min(int(days or 7), 31))
+        return format_summary(store.week_summary(days))
+
+    return [remember_fact, forget_fact, add_reminder, list_reminders, complete_reminder, save_note, search_notes,
+            log_mood, get_weekly_recap]
+
+
+def format_summary(w: WeekSummary) -> str:
+    lines = [f"Recap data for {w.start:%a %b %d} - {w.end:%a %b %d}:"]
+    if w.check_ins:
+        lines.append(f"Mood check-ins: {w.check_ins}, average {w.average}/5 ({MOOD_WORDS[round(w.average)]}).")
+        lines.append("Most common feelings: " + ", ".join(f"{label} x{n}" for label, n in w.top_labels) + ".")
+        lines.append(f"Best day: {w.best_day.day:%A} (avg {w.best_day.average}).")
+        lines.append(f"Hardest day: {w.hardest_day.day:%A} (avg {w.hardest_day.average}).")
+        lines.append("Day by day:")
+        for d in w.days:
+            entries = "; ".join(f"{m.label} {m.score}/5" + (f" ({m.note})" if m.note else "") for m in d.entries)
+            lines.append(f"- {d.day:%a %b %d}: {entries}")
+    else:
+        lines.append("No mood check-ins in this period.")
+    lines.append("Reminders completed: " + (", ".join(w.reminders_completed) or "none") + ".")
+    if w.reminders_overdue:
+        lines.append("Still overdue: " + ", ".join(w.reminders_overdue) + ".")
+    if w.memories_added:
+        lines.append("New things they shared: " + "; ".join(m.rstrip(".") for m in w.memories_added) + ".")
+    if w.notes_added:
+        lines.append("Notes saved: " + ", ".join(w.notes_added) + ".")
+    return "\n".join(lines)

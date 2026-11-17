@@ -90,6 +90,14 @@ def create_app(bot: Deepzzzz | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(e)) from e
         return {"status": "done"}
 
+    @app.get("/moods")
+    def moods(days: int = 14) -> list[dict]:
+        days = max(1, min(days, 90))
+        return [{"date": d.day.isoformat(), "average": d.average,
+                 "entries": [{"score": m.score, "label": m.label, "note": m.note,
+                              "time": m.created_at.strftime("%H:%M")} for m in d.entries]}
+                for d in get_bot().store.mood_days(days)]
+
     @app.get("/")
     def index() -> FileResponse:
         return FileResponse(STATIC_DIR / "index.html")

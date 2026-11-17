@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import sqlite3
 import threading
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
@@ -33,6 +33,41 @@ class Reminder:
     text: str
     due: datetime | None
     done: bool
+
+
+@dataclass
+class Mood:
+    id: int
+    score: int  # 1 = very low, 2 = low, 3 = okay, 4 = good, 5 = great
+    label: str  # a word or two, e.g. "stressed", "excited"
+    note: str
+    created_at: datetime
+
+
+@dataclass
+class DayMood:
+    day: date
+    average: float
+    entries: list[Mood]
+
+
+@dataclass
+class WeekSummary:
+    start: date
+    end: date
+    days: list[DayMood]  # only days with at least one check-in
+    check_ins: int
+    average: float | None
+    top_labels: list[tuple[str, int]]
+    best_day: DayMood | None
+    hardest_day: DayMood | None
+    reminders_completed: list[str] = field(default_factory=list)
+    reminders_overdue: list[str] = field(default_factory=list)
+    memories_added: list[str] = field(default_factory=list)
+    notes_added: list[str] = field(default_factory=list)
+
+
+MOOD_WORDS = {1: "very low", 2: "low", 3: "okay", 4: "good", 5: "great"}
 
 
 @dataclass
@@ -80,8 +115,20 @@ class Store:
                 content TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS moods (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                score INTEGER NOT NULL CHECK (score BETWEEN 1 AND 5),
+                label TEXT NOT NULL,
+                note TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_moods_created ON moods(created_at);
             """
         )
+        # Databases created before mood tracking have no completed_at column on reminders.
+        columns = {r["name"] for r in self._conn.execute("PRAGMA table_info(reminders)")}
+        if "completed_at" not in columns:
+            self._conn.execute("ALTER TABLE reminders ADD COLUMN completed_at TEXT")
         self._conn.commit()
 
     # ---------- memories ----------
@@ -153,7 +200,8 @@ class Store:
             reminder = self.get_reminder(reminder_id)
             if reminder.done:
                 raise StoreError(f"Reminder {reminder_id} is already done.")
-            self._conn.execute("UPDATE reminders SET done = 1 WHERE id = ?", (reminder_id,))
+            self._conn.execute("UPDATE reminders SET done = 1, completed_at = ? WHERE id = ?",
+                               (self.now().isoformat(), reminder_id))
             self._conn.commit()
         reminder.done = True
         return reminder
@@ -188,7 +236,82 @@ class Store:
             rows = self._conn.execute("SELECT * FROM notes ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
         return [self._row_to_note(r) for r in rows]
 
+    # ---------- moods ----------
+
+    def log_mood(self, score: int, label: str, note: str = "") -> Mood:
+        try:
+            score = int(score)
+        except (TypeError, ValueError):
+            raise StoreError("Mood score must be a number from 1 to 5.")
+        if not 1 <= score <= 5:
+            raise StoreError("Mood score must be from 1 (very low) to 5 (great).")
+        label = _clean(label, "mood label")[:40].lower()
+        note = " ".join((note or "").split())[:300]
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO moods (score, label, note, created_at) VALUES (?, ?, ?, ?)",
+                (score, label, note, self.now().isoformat()),
+            )
+            self._conn.commit()
+        return self._row_to_mood(self._conn.execute("SELECT * FROM moods WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+    def moods_between(self, start: datetime, end: datetime) -> list[Mood]:
+        rows = self._conn.execute(
+            "SELECT * FROM moods WHERE created_at >= ? AND created_at < ? ORDER BY created_at",
+            (start.isoformat(), end.isoformat()),
+        ).fetchall()
+        return [self._row_to_mood(r) for r in rows]
+
+    def mood_days(self, days: int = 14) -> list[DayMood]:
+        """Check-ins grouped by day for the last `days` days (including today), oldest first."""
+        today = self.now().date()
+        start = datetime.combine(today - timedelta(days=days - 1), datetime.min.time())
+        end = datetime.combine(today + timedelta(days=1), datetime.min.time())
+        by_day: dict[date, list[Mood]] = {}
+        for mood in self.moods_between(start, end):
+            by_day.setdefault(mood.created_at.date(), []).append(mood)
+        return [DayMood(d, round(sum(m.score for m in ms) / len(ms), 1), ms) for d, ms in sorted(by_day.items())]
+
+    def logged_mood_today(self) -> bool:
+        return bool(self.mood_days(1))  # mood_days(1) covers only today
+
+    def week_summary(self, days: int = 7) -> WeekSummary:
+        now = self.now()
+        start_day = now.date() - timedelta(days=days - 1)
+        start = datetime.combine(start_day, datetime.min.time()).isoformat()
+        mood_days = self.mood_days(days)
+        moods = [m for d in mood_days for m in d.entries]
+
+        label_counts: dict[str, int] = {}
+        for m in moods:
+            label_counts[m.label] = label_counts.get(m.label, 0) + 1
+        top = sorted(label_counts.items(), key=lambda kv: (-kv[1], kv[0]))[:3]
+
+        def texts(sql: str, *args) -> list[str]:
+            return [r[0] for r in self._conn.execute(sql, args).fetchall()]
+
+        return WeekSummary(
+            start=start_day,
+            end=now.date(),
+            days=mood_days,
+            check_ins=len(moods),
+            average=round(sum(m.score for m in moods) / len(moods), 1) if moods else None,
+            top_labels=top,
+            best_day=max(mood_days, key=lambda d: (d.average, d.day)) if mood_days else None,
+            hardest_day=min(mood_days, key=lambda d: (d.average, d.day)) if mood_days else None,
+            reminders_completed=texts("SELECT text FROM reminders WHERE done = 1 AND completed_at >= ? ORDER BY completed_at", start),
+            reminders_overdue=texts("SELECT text FROM reminders WHERE done = 0 AND due IS NOT NULL AND due < ? ORDER BY due",
+                                    now.isoformat()),
+            memories_added=texts("SELECT content FROM memories WHERE created_at >= ? ORDER BY id", start),
+            notes_added=texts("SELECT title FROM notes WHERE created_at >= ? ORDER BY id", start),
+        )
+
     # ---------- helpers ----------
+
+    @staticmethod
+    def _row_to_mood(row: sqlite3.Row) -> Mood:
+        return Mood(row["id"], row["score"], row["label"], row["note"], datetime.fromisoformat(row["created_at"]))
+
 
     @staticmethod
     def _row_to_reminder(row: sqlite3.Row) -> Reminder:

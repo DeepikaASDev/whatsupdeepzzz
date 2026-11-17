@@ -92,7 +92,9 @@ class Deepzzzz:
         return graph.compile(checkpointer=self.checkpointer)
 
     def system_prompt(self) -> str:
-        return build_system_prompt(self.now(), self.user_name, self.store.list_memories(), self.store.due_reminders())
+        recent = [m for day in self.store.mood_days(7) for m in day.entries]
+        return build_system_prompt(self.now(), self.user_name, self.store.list_memories(), self.store.due_reminders(),
+                                   recent_moods=recent, logged_today=self.store.logged_mood_today())
 
     def _call_model(self, state: ChatState) -> dict:
         # Keep the last N messages, starting on a human turn so tool calls stay paired with their results.

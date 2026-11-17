@@ -85,6 +85,10 @@ _ACTION_CLAIMS = [
      re.compile(r"\b(i'?ve|i have) (marked|checked|ticked) (it|that|this|the reminder)( off| as done| done)?\b|"
                 r"\bmarked (it |that |this )?(as )?(done|complete)\b", re.IGNORECASE),
      "complete_reminder", "Completed reminder"),
+    ("logged your mood",
+     re.compile(r"\b(i'?ve|i have|i) (just )?(logged|tracked|recorded|noted down|saved) (your |that |this |the )?"
+                r"(mood|feeling|check-?in)\b|\b(mood|check-?in) (is |has been )?(logged|recorded|saved)\b", re.IGNORECASE),
+     "log_mood", "Mood logged"),
     ("forgot that",
      re.compile(r"\b(i'?ve|i have) (forgotten|deleted|removed) (that|it|this)( memory)?\b", re.IGNORECASE),
      "forget_fact", "Forgot memory"),

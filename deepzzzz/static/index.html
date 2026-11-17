@@ -38,6 +38,13 @@
   aside li button { border:0; background:none; cursor:pointer; color:var(--muted); font-size:14px; padding:0; }
   aside li button:hover { color:var(--brand); }
   .empty { color:var(--muted); font-size:13px; background:none !important; padding:0 !important; }
+  .chart { display:grid; grid-template-columns:repeat(14,1fr); gap:3px; align-items:end; height:96px; margin-bottom:4px; }
+  .chart .col { display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; }
+  .chart .bar { width:100%; border-radius:4px 4px 2px 2px; min-height:3px; }
+  .chart .none { background:var(--line); height:3px; }
+  .chart-x { display:grid; grid-template-columns:repeat(14,1fr); gap:3px; font-size:10px; color:var(--muted); text-align:center; margin-bottom:6px; }
+  .mood-legend { font-size:12px; color:var(--muted); margin:0 0 18px; }
+  .s1{background:#dc2626}.s2{background:#f97316}.s3{background:#eab308}.s4{background:#84cc16}.s5{background:#16a34a}
   @media (max-width: 800px) { aside { display:none; } }
 </style>
 </head>
@@ -47,6 +54,7 @@
     <div class="avatar" aria-hidden="true">D</div>
     <div><h1>Deepzzzz</h1><p>your AI buddy · remembers you · reminders &amp; notes</p></div>
     <div class="spacer"></div>
+    <button class="btn" id="recap" type="button">Weekly recap</button>
     <button class="btn" id="reset" type="button">New chat</button>
   </header>
   <div id="log" aria-live="polite"></div>
@@ -56,6 +64,10 @@
   </form>
 </main>
 <aside>
+  <h2>Mood · last 14 days</h2>
+  <div class="chart" id="chart" role="img" aria-label="Mood chart"></div>
+  <div class="chart-x" id="chart-x"></div>
+  <p class="mood-legend" id="mood-legend">Tell Deepzzzz how you feel and it shows up here.</p>
   <h2>What I remember about you</h2>
   <ul id="memories"></ul>
   <h2>Reminders</h2>
@@ -115,6 +127,44 @@
         async () => { await getJSON("/reminders/" + r.id + "/done", {method: "POST"}); refreshSide(); }, "Done")),
         "No reminders.");
     } catch (e) { /* side panel is optional */ }
+    refreshMoods();
+  }
+
+  async function refreshMoods() {
+    let days = [];
+    try { days = await getJSON("/moods?days=14"); } catch (e) { return; }
+    const byDate = Object.fromEntries(days.map(d => [d.date, d]));
+    const chart = document.getElementById("chart"), axis = document.getElementById("chart-x");
+    const cols = [], labels = [];
+    const today = new Date();
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+      const key = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      const day = byDate[key];
+      const col = document.createElement("div");
+      col.className = "col";
+      const bar = document.createElement("div");
+      if (day) {
+        bar.className = "bar s" + Math.round(day.average);
+        bar.style.height = (day.average / 5 * 100) + "%";
+        col.title = d.toLocaleDateString([], {weekday: "short", month: "short", day: "numeric"}) + " · avg " + day.average + "/5\n"
+          + day.entries.map(e => e.time + " " + e.label + " " + e.score + "/5" + (e.note ? " (" + e.note + ")" : "")).join("\n");
+      } else {
+        bar.className = "bar none";
+        col.title = d.toLocaleDateString([], {weekday: "short", month: "short", day: "numeric"}) + " · no check-in";
+      }
+      col.appendChild(bar);
+      cols.push(col);
+      const lab = document.createElement("span");
+      lab.textContent = i === 0 ? "today" : "SMTWTFS"[d.getDay()];
+      labels.push(lab);
+    }
+    chart.replaceChildren(...cols);
+    axis.replaceChildren(...labels);
+    const all = days.flatMap(d => d.entries);
+    document.getElementById("mood-legend").textContent = all.length
+      ? all.length + " check-in" + (all.length > 1 ? "s" : "") + " · avg " + (all.reduce((a, e) => a + e.score, 0) / all.length).toFixed(1) + "/5 · hover a bar for details"
+      : "Tell Deepzzzz how you feel and it shows up here.";
   }
 
   async function loadHistory() {
@@ -157,6 +207,12 @@
       send.disabled = false;
       input.focus();
     }
+  });
+
+  document.getElementById("recap").addEventListener("click", () => {
+    if (send.disabled) return;
+    input.value = "Can you give me my weekly recap? 📊";
+    form.requestSubmit();
   });
 
   document.getElementById("reset").addEventListener("click", async () => {
