@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deepzzzz</title>
+<style>
+  :root { --brand:#7c3aed; --brand-soft:#f3edff; --bg:#faf8ff; --ink:#1f1b2e; --muted:#6b6880; --line:#e7e3f3; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink);
+         height:100vh; display:flex; }
+  .chat { flex:1; display:flex; flex-direction:column; min-width:0; }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); background:#fff; display:flex; align-items:center; gap:12px; }
+  .avatar { width:40px; height:40px; border-radius:50%; background:var(--brand); color:#fff; display:grid; place-items:center;
+            font-weight:700; font-size:18px; }
+  header h1 { margin:0; font-size:17px; }
+  header p { margin:0; font-size:12px; color:var(--muted); }
+  header .spacer { flex:1; }
+  .btn { border:1px solid var(--line); background:#fff; border-radius:999px; padding:6px 14px; font-size:13px; cursor:pointer; color:var(--ink); }
+  .btn:hover { border-color:var(--brand); color:var(--brand); }
+  #log { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:min(640px,80%); padding:10px 14px; border-radius:18px; line-height:1.45; white-space:pre-wrap; font-size:15px; }
+  .user { align-self:flex-end; background:var(--brand); color:#fff; border-bottom-right-radius:4px; }
+  .bot { align-self:flex-start; background:#fff; border:1px solid var(--line); border-bottom-left-radius:4px; }
+  .meta { align-self:flex-start; font-size:11px; color:var(--muted); margin-top:-6px; }
+  form { display:flex; gap:8px; padding:14px 20px; border-top:1px solid var(--line); background:#fff; }
+  textarea { flex:1; resize:none; padding:11px 14px; border:1px solid var(--line); border-radius:20px; font:inherit; font-size:15px;
+             outline:none; max-height:120px; }
+  textarea:focus { border-color:var(--brand); }
+  #send { background:var(--brand); color:#fff; border:0; border-radius:20px; padding:0 20px; font-size:15px; cursor:pointer; }
+  #send:disabled { opacity:.5; cursor:default; }
+  aside { width:300px; border-left:1px solid var(--line); background:#fff; overflow-y:auto; padding:16px; }
+  aside h2 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:8px 0 8px; }
+  aside ul { list-style:none; margin:0 0 18px; padding:0; display:flex; flex-direction:column; gap:6px; }
+  aside li { background:var(--brand-soft); border-radius:10px; padding:8px 10px; font-size:13px; display:flex; gap:8px; align-items:flex-start; }
+  aside li span { flex:1; }
+  aside li small { display:block; color:var(--muted); }
+  aside li button { border:0; background:none; cursor:pointer; color:var(--muted); font-size:14px; padding:0; }
+  aside li button:hover { color:var(--brand); }
+  .empty { color:var(--muted); font-size:13px; background:none !important; padding:0 !important; }
+  @media (max-width: 800px) { aside { display:none; } }
+</style>
+</head>
+<body>
+<main class="chat">
+  <header>
+    <div class="avatar" aria-hidden="true">D</div>
+    <div><h1>Deepzzzz</h1><p>your AI buddy · remembers you · reminders &amp; notes</p></div>
+    <div class="spacer"></div>
+    <button class="btn" id="reset" type="button">New chat</button>
+  </header>
+  <div id="log" aria-live="polite"></div>
+  <form id="form">
+    <textarea id="input" rows="1" placeholder="Say hi to Deepzzzz…" maxlength="4000" aria-label="Message"></textarea>
+    <button id="send" type="submit">Send</button>
+  </form>
+</main>
+<aside>
+  <h2>What I remember about you</h2>
+  <ul id="memories"></ul>
+  <h2>Reminders</h2>
+  <ul id="reminders"></ul>
+</aside>
+<script>
+  const log = document.getElementById("log");
+  const form = document.getElementById("form");
+  const input = document.getElementById("input");
+  const send = document.getElementById("send");
+
+  function add(text, cls) {
+    const el = document.createElement("div");
+    el.className = cls;
+    el.textContent = text;
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
+    return el;
+  }
+
+  async function getJSON(url, opts) {
+    const res = await fetch(url, opts);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || ("HTTP " + res.status));
+    return data;
+  }
+
+  function item(text, sub, onAction, actionLabel) {
+    const li = document.createElement("li");
+    const span = document.createElement("span");
+    span.textContent = text;
+    if (sub) { const s = document.createElement("small"); s.textContent = sub; span.appendChild(s); }
+    li.appendChild(span);
+    if (onAction) {
+      const b = document.createElement("button");
+      b.type = "button"; b.title = actionLabel; b.setAttribute("aria-label", actionLabel);
+      b.textContent = actionLabel === "Done" ? "✓" : "✕";
+      b.onclick = onAction;
+      li.appendChild(b);
+    }
+    return li;
+  }
+
+  function fill(listId, items, emptyText) {
+    const ul = document.getElementById(listId);
+    ul.replaceChildren(...(items.length ? items : [Object.assign(document.createElement("li"), {className: "empty", textContent: emptyText})]));
+  }
+
+  async function refreshSide() {
+    try {
+      const [memories, reminders] = await Promise.all([getJSON("/memories"), getJSON("/reminders")]);
+      fill("memories", memories.map(m => item(m.content, null, async () => {
+        await getJSON("/memories/" + m.id, {method: "DELETE"}); refreshSide();
+      }, "Forget")), "Nothing yet. Tell me about yourself!");
+      fill("reminders", reminders.map(r => item(r.text,
+        r.due ? new Date(r.due).toLocaleString([], {weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}) : null,
+        async () => { await getJSON("/reminders/" + r.id + "/done", {method: "POST"}); refreshSide(); }, "Done")),
+        "No reminders.");
+    } catch (e) { /* side panel is optional */ }
+  }
+
+  async function loadHistory() {
+    try {
+      const history = await getJSON("/history");
+      if (!history.length) add("Hey hey! 👋 I'm Deepzzzz. How's your day going?", "msg bot");
+      history.forEach(m => add(m.text, m.role === "user" ? "msg user" : "msg bot"));
+    } catch (e) {
+      add("Hmm, I can't start yet: " + e.message, "msg bot");
+    }
+    refreshSide();
+  }
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const message = input.value.trim();
+    if (!message || send.disabled) return;
+    add(message, "msg user");
+    input.value = "";
+    send.disabled = true;
+    const typing = add("…", "msg bot");
+    try {
+      const data = await getJSON("/chat", {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({message}),
+      });
+      typing.textContent = data.reply;
+      const bits = [(data.latency_ms / 1000).toFixed(1) + " s"];
+      if (data.tool_calls.length) bits.push("tools: " + data.tool_calls.join(", "));
+      if (data.guardrail) bits.push("guardrail: " + data.guardrail);
+      if (data.error) bits.push("error: " + data.error + " (run python -m deepzzzz.check_setup)");
+      add(bits.join(" · "), "meta");
+      refreshSide();
+    } catch (err) {
+      typing.textContent = "Sorry, something went wrong. " + err.message;
+    } finally {
+      send.disabled = false;
+      input.focus();
+    }
+  });
+
+  document.getElementById("reset").addEventListener("click", async () => {
+    if (!confirm("Start a new chat? I'll still remember the facts and reminders you saved.")) return;
+    await getJSON("/reset", {method: "POST"});
+    log.replaceChildren();
+    add("Fresh start! ✨ What's up?", "msg bot");
+  });
+
+  loadHistory();
+</script>
+</body>
+</html>

@@ -1,16 +1,13 @@
-"""Chat with the agent in your terminal:  python -m booking_agent.cli"""
+"""Chat with Deepzzzz in your terminal:  python -m deepzzzz.cli"""
 
 from __future__ import annotations
 
-import uuid
-
-from .agent import build_default_agent
+from .agent import build_default
 
 
 def main() -> None:
-    agent = build_default_agent()
-    session_id = uuid.uuid4().hex
-    print("Bright Smile Dental assistant. Type 'quit' to exit.\n")
+    bot = build_default()
+    print("Deepzzzz is here! Type 'quit' to exit, '/reset' for a new chat.\n")
     while True:
         try:
             message = input("You: ").strip()
@@ -18,11 +15,15 @@ def main() -> None:
             break
         if message.lower() in {"quit", "exit"}:
             break
+        if message == "/reset":
+            bot.reset()
+            print("Deepzzzz: Fresh start! What's up?\n")
+            continue
         if not message:
             continue
-        result = agent.chat(session_id, message)
-        print(f"Agent: {result.reply}")
-        meta = f"  [{result.latency_ms} ms"
+        result = bot.chat(message)
+        print(f"Deepzzzz: {result.reply}")
+        meta = f"  [{result.latency_ms / 1000:.1f}s"
         if result.tool_calls:
             meta += f", tools: {', '.join(result.tool_calls)}"
         if result.guardrail:

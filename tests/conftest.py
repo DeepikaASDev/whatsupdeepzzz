@@ -9,17 +9,17 @@ from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from pydantic import Field
 
-from booking_agent.store import AppointmentStore
+from deepzzzz.agent import Deepzzzz
+from deepzzzz.store import Store
 
-# Monday 16 Nov 2026, 8:00 AM: the clinic opens at 9.
-FIXED_NOW = datetime(2026, 11, 16, 8, 0)
+# Monday 16 Nov 2026, 6:00 PM
+FIXED_NOW = datetime(2026, 11, 16, 18, 0)
 
 
 class ScriptedChatModel(BaseChatModel):
-    """A fake chat model that returns pre-written replies in order.
+    """Fake chat model that returns pre-written replies in order.
 
-    Lets tests drive the real LangGraph loop (tool calls, tool results,
-    memory) without calling a paid LLM API.
+    Drives the real LangGraph loop, tools and storage without a paid API.
     """
 
     responses: list[AIMessage]
@@ -44,5 +44,14 @@ def tool_call(name: str, args: dict, call_id: str = "call_1") -> AIMessage:
 
 
 @pytest.fixture
-def store() -> AppointmentStore:
-    return AppointmentStore(":memory:", now_fn=lambda: FIXED_NOW)
+def store() -> Store:
+    return Store(":memory:", now_fn=lambda: FIXED_NOW)
+
+
+@pytest.fixture
+def make_bot(store):
+    def _make(responses, **kwargs):
+        llm = ScriptedChatModel(responses=list(responses))
+        bot = Deepzzzz(llm, store, user_name="Deepika", now_fn=lambda: FIXED_NOW, **kwargs)
+        return bot, llm
+    return _make
