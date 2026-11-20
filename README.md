@@ -58,7 +58,7 @@ Deepzzzz:  Hey Deepika! Don't forget your STAR stories practice tonight. How are
   2. *Action-claim check:* if Deepzzzz says "I'll remember that", "reminder set" or "I've logged your mood" but the matching tool didn't succeed in that turn, the reply is replaced with an honest one, and memory is corrected too. This came from the booking-agent version, where a small model said "you're booked" after the booking tool had failed.
   3. *Prompt-leak canary* and message-length limits.
 - **Honest persona:** friendly and casual, but it always says it's an AI if asked, and encourages talking to people you trust when things are heavy.
-- **Provider-agnostic:** Groq (free, fast), Ollama (local, no key), Gemini, OpenAI or Anthropic through LangChain's `init_chat_model`. Switching takes one line in `.env`.
+- **Provider-agnostic:** GitHub Models (free with a GitHub token), Groq (free, fast), Ollama (local, no key), Gemini, OpenAI or Anthropic through LangChain's `init_chat_model`. Switching takes one line in `.env`.
 
 ## Run it
 

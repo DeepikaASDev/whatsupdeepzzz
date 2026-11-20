@@ -15,6 +15,7 @@ class Settings:
     max_message_chars: int
     history_messages: int
     ollama_num_ctx: int
+    github_models_endpoint: str
 
 
 def get_settings() -> Settings:
@@ -30,4 +31,5 @@ def get_settings() -> Settings:
         history_messages=int(os.getenv("HISTORY_MESSAGES", "40")),
         # Context window for local Ollama models, in tokens.
         ollama_num_ctx=int(os.getenv("OLLAMA_NUM_CTX", "8192")),
+        github_models_endpoint=os.getenv("GITHUB_MODELS_ENDPOINT", "https://models.github.ai/inference"),
     )
