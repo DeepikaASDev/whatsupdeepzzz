@@ -14,6 +14,7 @@ class Settings:
     user_name: str
     max_message_chars: int
     history_messages: int
+    ollama_num_ctx: int
 
 
 def get_settings() -> Settings:
@@ -27,4 +28,6 @@ def get_settings() -> Settings:
         max_message_chars=int(os.getenv("MAX_MESSAGE_CHARS", "4000")),
         # How many recent messages the model sees each turn (long-term facts live in memory).
         history_messages=int(os.getenv("HISTORY_MESSAGES", "40")),
+        # Context window for local Ollama models, in tokens.
+        ollama_num_ctx=int(os.getenv("OLLAMA_NUM_CTX", "8192")),
     )

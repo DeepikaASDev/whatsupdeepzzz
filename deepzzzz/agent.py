@@ -193,7 +193,12 @@ def build_default() -> Deepzzzz:
 
     data = Path(settings.data_dir)
     data.mkdir(parents=True, exist_ok=True)
-    llm = init_chat_model(settings.llm_model, temperature=0.7)
+    extra = {}
+    if settings.llm_model.startswith("ollama:"):
+        # Ollama's default context is 4096 tokens. Persona + tools + history can exceed that, and Ollama then
+        # silently drops the *start* of the prompt (the persona and memories), so ask for more room.
+        extra["num_ctx"] = settings.ollama_num_ctx
+    llm = init_chat_model(settings.llm_model, temperature=0.7, **extra)
     store = Store(str(data / "deepzzzz.db"), now_fn=now_local)
     checkpointer = SqliteSaver(sqlite3.connect(str(data / "chat_history.db"), check_same_thread=False))
     return Deepzzzz(llm, store, checkpointer, user_name=settings.user_name,
