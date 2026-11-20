@@ -198,19 +198,7 @@ def build_default() -> Deepzzzz:
         # Ollama's default context is 4096 tokens. Persona + tools + history can exceed that, and Ollama then
         # silently drops the *start* of the prompt (the persona and memories), so ask for more room.
         extra["num_ctx"] = settings.ollama_num_ctx
-    if settings.llm_model.startswith("github:"):
-        # GitHub Models: free, OpenAI-compatible API that works with a GitHub personal access token.
-        import os
-
-        from langchain_openai import ChatOpenAI
-
-        token = os.getenv("GITHUB_TOKEN", "").strip()
-        if not token:
-            raise RuntimeError("GITHUB_TOKEN is empty. Create a token at github.com/settings/tokens and add it to .env")
-        llm = ChatOpenAI(model=settings.llm_model.split(":", 1)[1], base_url=settings.github_models_endpoint,
-                         api_key=token, temperature=0.7)
-    else:
-        llm = init_chat_model(settings.llm_model, temperature=0.7, **extra)
+    llm = init_chat_model(settings.llm_model, temperature=0.7, **extra)
     store = Store(str(data / "deepzzzz.db"), now_fn=now_local)
     checkpointer = SqliteSaver(sqlite3.connect(str(data / "chat_history.db"), check_same_thread=False))
     return Deepzzzz(llm, store, checkpointer, user_name=settings.user_name,

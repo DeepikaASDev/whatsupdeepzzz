@@ -7,8 +7,7 @@ import sys
 from pathlib import Path
 
 KEY_NAMES = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY",
-             "google_genai": "GOOGLE_API_KEY", "groq": "GROQ_API_KEY",
-             "github": "GITHUB_TOKEN"}
+             "google_genai": "GOOGLE_API_KEY", "groq": "GROQ_API_KEY"}
 
 
 def main() -> int:
@@ -73,9 +72,6 @@ def main() -> int:
         print(f"[fail] The model call failed: {type(exc).__name__}: {str(exc)[:300]}")
         if provider == "ollama":
             print("       Make sure the Ollama app is running and you ran:  ollama pull " + model.split(":", 1)[1])
-        elif provider == "github":
-            print("       GitHub Models: check the token is valid and has the 'Models: Read-only' permission, the model\n"
-                  "       name is right (e.g. openai/gpt-4o-mini), and you haven't hit the free daily limit.")
         else:
             print("       Common causes: invalid key, no credit, a retired model name, or too many requests "
                   "per minute on a free tier (wait a minute).")
